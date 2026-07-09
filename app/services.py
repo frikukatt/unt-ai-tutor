@@ -11,3 +11,13 @@ def search_by_name(name: str):
             result.append(major)
 
     return result
+
+def search_by_subject(subject: str):
+    result = []
+
+    for major in all_majors:
+        for subject_name in major["subjects"]:
+            if subject.lower() in subject_name.lower():
+                result.append(major)
+
+    return result
