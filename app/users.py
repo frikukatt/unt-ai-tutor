@@ -1,8 +1,7 @@
-from pydantic import BaseModel 
+from pydantic import BaseModel, EmailStr
 
-class User(BaseModel):
+
+class UserCreate(BaseModel):
     username: str
     email: str
     password: str
-
-users = []

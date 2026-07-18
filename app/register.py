@@ -1,9 +1,23 @@
-from fastapi import APIRouter
-from app.users import User, users
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import User
+from app.users import UserCreate
 
 router = APIRouter()
 
+
 @router.post("/register")
-def register_user(user: User):
-    users.append(user)
+def register_user(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = User(
+        username=user.username,
+        email=user.email,
+        password=user.password
+    )
+
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+
     return {"message": "User registered successfully"}
