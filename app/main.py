@@ -7,10 +7,11 @@ from app.models import Base
 
 from app.routes import router
 from app.register import router as register_router
-
+from app.login import router as login_router
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
 
 app.include_router(router)
 app.include_router(register_router)
+app.include_router(login_router)
