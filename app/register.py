@@ -5,7 +5,7 @@ import app
 from app.database import get_db
 from app.models import User
 from app.security import hash_password
-from app.users import UserCreate
+from app.schemas import UserCreate
 
 router = APIRouter()
 

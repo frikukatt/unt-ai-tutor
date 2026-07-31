@@ -1,6 +1,9 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from app.data import Academic_majors, Creative_majors
+from app.models import Question
 from app.services import search_by_name, search_by_subject
+from app.database import SessionLocal, get_db
+from sqlalchemy.orm import Session
 
 
 router = APIRouter()
