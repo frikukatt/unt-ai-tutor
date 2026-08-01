@@ -17,5 +17,17 @@ def create_question(question: QuestionCreate, db: Session = Depends(get_db)):
     return db_question
 
 @router.get("/questions")
-def get_questions(db: Session = Depends(get_db)):
-    return db.query(Question).all()
+def get_questions(
+    subject: str | None = None,
+    topic: str | None = None,
+    db: Session = Depends(get_db)
+):
+    query = db.query(Question)
+
+    if subject:
+        query = query.filter(Question.subject == subject)
+
+    if topic:
+        query = query.filter(Question.topic == topic)
+
+    return query.all()
