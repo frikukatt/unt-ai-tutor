@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends
 import app
-from app.schemas import QuestionCreate
+from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult
 from app.models import Question
 from sqlalchemy.orm import Session
 from app.database import get_db
 from fastapi import HTTPException
-
 
 router = APIRouter()
 
@@ -80,3 +79,30 @@ def delete_question(
     db.delete(question)
     db.commit()
     return {"message": "Question deleted successfully"}
+
+@router.post("/submit-test", response_model=TestResult)
+def submit_test(
+    answers: list[QuestionAnswer],
+    db: Session = Depends(get_db)
+):
+    score = 0
+    total = len(answers)
+    results = []
+
+    for answer in answers:
+        question = db.query(Question).filter(Question.id == answer.question_id).first()
+        if question and question.correct_answer == answer.answer:
+            score += 1
+
+        results.append(
+    AnswerResult(
+        question_id=answer.question_id,
+        user_answer=answer.answer,
+        correct_answer=question.correct_answer if question else "",
+        correct=question.correct_answer == answer.answer if question else False,
+        explanation=question.explanation if question else ""
+    )
+)
+        percentage = round((score / total) * 100, 2) if total > 0 else 0
+    return TestResult(score=score, total=total, percentage=percentage, results=results)
+    
