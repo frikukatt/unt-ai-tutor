@@ -1,5 +1,6 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from datetime import datetime
 
 
 class Base(DeclarativeBase):
@@ -28,3 +29,17 @@ class Question(Base):
     option_d = Column(String, nullable=False)
     correct_answer = Column(String, nullable=False)
     explanation = Column(String, nullable=False)
+
+
+class TestAttempt(Base):
+    __tablename__ = "test_attempts"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"))
+
+    score = Column(Integer, nullable=False)
+    total = Column(Integer, nullable=False)
+    percentage = Column(Float, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)
