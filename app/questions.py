@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends
-import app
 from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult
-from app.models import Question
+from app.models import Question, TestAttempt, User
 from sqlalchemy.orm import Session
 from app.database import get_db
 from fastapi import HTTPException
+from app.security import get_current_user
+
 
 router = APIRouter()
 
@@ -83,7 +84,8 @@ def delete_question(
 @router.post("/submit-test", response_model=TestResult)
 def submit_test(
     answers: list[QuestionAnswer],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     score = 0
     total = len(answers)
@@ -104,5 +106,24 @@ def submit_test(
     )
 )
         percentage = round((score / total) * 100, 2) if total > 0 else 0
+        attempt = TestAttempt(
+    user_id=current_user.id,
+    score=score,
+    total=total,
+    percentage=percentage
+)
+        db.add(attempt)
+        db.commit()
+
+@router.get("/attempts")
+def get_attempts(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    return (
+        db.query(TestAttempt)
+        .filter(TestAttempt.user_id == current_user.id)
+        .all()
+    )
     return TestResult(score=score, total=total, percentage=percentage, results=results)
     

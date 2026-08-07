@@ -1,6 +1,4 @@
 from pydantic import BaseModel, EmailStr
-from app.models import AnswerResult
-
 
 class UserCreate(BaseModel):
     username: str
@@ -30,6 +28,14 @@ class QuestionAnswer(BaseModel):
     answer: str
 
 
+class AnswerResult(BaseModel):
+    question_id: int
+    user_answer: str
+    correct_answer: str
+    correct: bool
+    explanation: str
+
+
 class TestResult(BaseModel):
     score: int
     total: int
@@ -37,9 +43,3 @@ class TestResult(BaseModel):
     results: list[AnswerResult]
 
 
-class AnswerResult(BaseModel):
-    question_id: int
-    user_answer: str
-    correct_answer: str
-    correct: bool
-    explanation: str
