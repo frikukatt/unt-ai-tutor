@@ -112,8 +112,15 @@ def submit_test(
     total=total,
     percentage=percentage
 )
-        db.add(attempt)
-        db.commit()
+    db.add(attempt)
+    db.commit()
+
+    return TestResult(
+    score=score,
+    total=total,
+    percentage=percentage,
+    results=results
+)
 
 @router.get("/attempts")
 def get_attempts(
