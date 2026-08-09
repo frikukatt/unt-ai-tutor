@@ -41,5 +41,6 @@ class TestAttempt(Base):
     score = Column(Integer, nullable=False)
     total = Column(Integer, nullable=False)
     percentage = Column(Float, nullable=False)
+    test_type = Column(String, nullable=False, default="practice") 
 
     created_at = Column(DateTime, default=datetime.utcnow)

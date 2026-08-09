@@ -84,6 +84,7 @@ def delete_question(
 @router.post("/submit-test", response_model=TestResult)
 def submit_test(
     answers: list[QuestionAnswer],
+    test_type: str = "practice",
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
@@ -110,7 +111,8 @@ def submit_test(
     user_id=current_user.id,
     score=score,
     total=total,
-    percentage=percentage
+    percentage=percentage,
+    test_type=test_type
 )
     db.add(attempt)
     db.commit()
