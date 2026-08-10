@@ -44,3 +44,14 @@ class TestAttempt(Base):
     test_type = Column(String, nullable=False, default="practice") 
 
     created_at = Column(DateTime, default=datetime.utcnow)
+
+
+class BookmarkedQuestion(Base):
+    __tablename__ = "bookmarked_questions"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow)

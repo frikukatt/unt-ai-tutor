@@ -11,6 +11,7 @@ from app.login import router as login_router
 from app.me import router as me_router
 from app.questions import router as questions_router
 from app.profile import router as profile_router
+from app.bookmarks import router as bookmarks_router
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
@@ -21,3 +22,4 @@ app.include_router(login_router)
 app.include_router(me_router)
 app.include_router(questions_router)
 app.include_router(profile_router)
+app.include_router(bookmarks_router)
