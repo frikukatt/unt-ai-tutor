@@ -1,9 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult
 from app.models import Question, TestAttempt, User
 from sqlalchemy.orm import Session
 from app.database import get_db
-from fastapi import HTTPException
 from app.security import get_current_user
 
 
@@ -11,7 +10,7 @@ router = APIRouter()
 
 @router.post("/questions")
 def create_question(question: QuestionCreate, db: Session = Depends(get_db)):
-    db_question = Question(**question.dict())
+    db_question = Question(**question.model_dump())
     db.add(db_question)
     db.commit()
     db.refresh(db_question)
@@ -21,6 +20,7 @@ def create_question(question: QuestionCreate, db: Session = Depends(get_db)):
 def get_questions(
     subject: str | None = None,
     topic: str | None = None,
+    search: str | None = None,
     db: Session = Depends(get_db)
 ):
     query = db.query(Question)
@@ -30,6 +30,9 @@ def get_questions(
 
     if topic:
         query = query.filter(Question.topic == topic)
+
+    if search:
+        query = query.filter(Question.question.ilike(f"%{search}%"))
 
     return query.all()
 
@@ -134,5 +137,3 @@ def get_attempts(
         .filter(TestAttempt.user_id == current_user.id)
         .all()
     )
-    return TestResult(score=score, total=total, percentage=percentage, results=results)
-    
