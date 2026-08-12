@@ -5,8 +5,8 @@ Academic_majors = [
         "subjects": [
             "Computer Science",
             "Mathematics",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -16,8 +16,8 @@ Academic_majors = [
         "subjects": [
             "Physics",
             "Mathematics",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -27,8 +27,8 @@ Academic_majors = [
         "subjects": [
             "Physics",
             "Chemistry",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -38,8 +38,8 @@ Academic_majors = [
         "subjects": [
             "Biology",
             "Chemistry",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -49,8 +49,8 @@ Academic_majors = [
         "subjects": [
             "Biology",
             "Geography",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -60,8 +60,8 @@ Academic_majors = [
         "subjects": [
             "Geography",
             "Mathematics",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -71,8 +71,8 @@ Academic_majors = [
         "subjects": [
             "World History",
             "Political Science",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -82,8 +82,8 @@ Academic_majors = [
         "subjects": [
             "World History",
             "English",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -93,8 +93,8 @@ Academic_majors = [
         "subjects": [
             "Kazakh Language",
             "Literature",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -104,8 +104,8 @@ Academic_majors = [
         "subjects": [
             "Russian Language",
             "Literature",
-            "Literacy Reading",
-            "Literacy Math",
+            "Reading Literacy",
+            "Mathematical Literacy",
             "History of Kazakhstan"
         ]
     }
@@ -117,7 +117,7 @@ Creative_majors = [
         "subjects": [
             "Creative Exam 1",
             "Creative Exam 2",
-            "Literacy Reading",
+            "Reading Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -127,7 +127,7 @@ Creative_majors = [
         "subjects": [
             "Creative Exam 1",
             "Creative Exam 2",
-            "Literacy Reading",
+            "Reading Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -137,7 +137,7 @@ Creative_majors = [
         "subjects": [
             "Creative Exam 1",
             "Creative Exam 2",
-            "Literacy Reading",
+            "Reading Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -147,7 +147,7 @@ Creative_majors = [
         "subjects": [
             "Creative Exam 1",
             "Creative Exam 2",
-            "Literacy Reading",
+            "Reading Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -157,7 +157,7 @@ Creative_majors = [
         "subjects": [
             "Creative Exam 1",
             "Creative Exam 2",
-            "Literacy Reading",
+            "Reading Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -167,7 +167,7 @@ Creative_majors = [
         "subjects": [
             "Creative Exam 1",
             "Creative Exam 2",
-            "Literacy Reading",
+            "Reading Literacy",
             "History of Kazakhstan"
         ]
     },
@@ -177,7 +177,7 @@ Creative_majors = [
         "subjects": [
             "Creative Exam 1",
             "Creative Exam 2",
-            "Literacy Reading",
+            "Reading Literacy",
             "History of Kazakhstan"
         ]
     }

@@ -21,9 +21,11 @@ def get_questions(
     subject: str | None = None,
     topic: str | None = None,
     search: str | None = None,
+    page: int = 1,
     db: Session = Depends(get_db)
 ):
     query = db.query(Question)
+    limit = 10
 
     if subject:
         query = query.filter(Question.subject == subject)
@@ -34,7 +36,8 @@ def get_questions(
     if search:
         query = query.filter(Question.question.ilike(f"%{search}%"))
 
-    return query.all()
+    offset = (page - 1) * limit
+    return query.offset(offset).limit(limit).all()
 
 @router.get("/questions/{question_id}")
 def get_question(question_id: int, db: Session = Depends(get_db)):
