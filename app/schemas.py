@@ -14,6 +14,7 @@ class UserLogin(BaseModel):
 class QuestionCreate(BaseModel):
     subject: str
     topic: str
+    topic_id: int | None = None
     question: str
     option_a: str
     option_b: str
@@ -43,3 +44,16 @@ class TestResult(BaseModel):
     results: list[AnswerResult]
 
 
+class TopicCreate(BaseModel):
+    name: str
+    subject: str
+
+
+class TopicResponse(BaseModel):
+    id: int
+    name: str
+    subject: str
+
+    model_config = {
+        "from_attributes": True
+    }

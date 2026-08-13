@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult
-from app.models import Question, TestAttempt, User
+from app.models import Question, TestAttempt, User, Topic
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app.security import get_current_user
@@ -20,6 +20,7 @@ def create_question(question: QuestionCreate, db: Session = Depends(get_db)):
 def get_questions(
     subject: str | None = None,
     topic: str | None = None,
+    topic_id: int | None = None,
     search: str | None = None,
     page: int = 1,
     db: Session = Depends(get_db)
@@ -33,10 +34,16 @@ def get_questions(
     if topic:
         query = query.filter(Question.topic == topic)
 
+    if topic_id:
+        query = query.filter(Question.topic_id == topic_id)
+
     if search:
-        query = query.filter(Question.question.ilike(f"%{search}%"))
+        query = query.filter(
+            Question.question.ilike(f"%{search}%")
+        )
 
     offset = (page - 1) * limit
+
     return query.offset(offset).limit(limit).all()
 
 @router.get("/questions/{question_id}")
@@ -99,36 +106,45 @@ def submit_test(
     results = []
 
     for answer in answers:
-        question = db.query(Question).filter(Question.id == answer.question_id).first()
+        question = db.query(Question).filter(
+            Question.id == answer.question_id
+        ).first()
+
         if question and question.correct_answer == answer.answer:
             score += 1
 
         results.append(
-    AnswerResult(
-        question_id=answer.question_id,
-        user_answer=answer.answer,
-        correct_answer=question.correct_answer if question else "",
-        correct=question.correct_answer == answer.answer if question else False,
-        explanation=question.explanation if question else ""
+            AnswerResult(
+                question_id=answer.question_id,
+                user_answer=answer.answer,
+                correct_answer=question.correct_answer if question else "",
+                correct=(
+                    question.correct_answer == answer.answer
+                    if question else False
+                ),
+                explanation=question.explanation if question else ""
+            )
+        )
+
+    percentage = round((score / total) * 100, 2) if total > 0 else 0
+
+    attempt = TestAttempt(
+        user_id=current_user.id,
+        score=score,
+        total=total,
+        percentage=percentage,
+        test_type=test_type
     )
-)
-        percentage = round((score / total) * 100, 2) if total > 0 else 0
-        attempt = TestAttempt(
-    user_id=current_user.id,
-    score=score,
-    total=total,
-    percentage=percentage,
-    test_type=test_type
-)
+
     db.add(attempt)
     db.commit()
 
     return TestResult(
-    score=score,
-    total=total,
-    percentage=percentage,
-    results=results
-)
+        score=score,
+        total=total,
+        percentage=percentage,
+        results=results
+    )
 
 @router.get("/attempts")
 def get_attempts(

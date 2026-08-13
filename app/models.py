@@ -16,12 +16,22 @@ class User(Base):
     password = Column(String, nullable=False)
 
 
+class Topic(Base):
+    __tablename__ = "topics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    subject = Column(String, nullable=False)
+
+
 class Question(Base):
     __tablename__ = "questions"
 
     id = Column(Integer, primary_key=True, index=True)
     subject = Column(String, nullable=False)
     topic = Column(String, nullable=False)
+    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=True)
+    
     question = Column(String, nullable=False)
     option_a = Column(String, nullable=False)
     option_b = Column(String, nullable=False)
