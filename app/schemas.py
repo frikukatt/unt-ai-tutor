@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr
 
 class UserCreate(BaseModel):
     username: str
@@ -22,6 +22,20 @@ class QuestionCreate(BaseModel):
     option_d: str
     correct_answer: str
     explanation: str
+
+
+class QuestionPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    subject: str
+    topic: str
+    topic_id: int | None
+    question: str
+    option_a: str
+    option_b: str
+    option_c: str
+    option_d: str
 
 
 class QuestionAnswer(BaseModel):

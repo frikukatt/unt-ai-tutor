@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult
+from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult, QuestionPublic
 from app.models import Question, TestAttempt, User, Topic
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.database import get_db
 from app.security import get_current_user
 
@@ -156,3 +157,22 @@ def get_attempts(
         .filter(TestAttempt.user_id == current_user.id)
         .all()
     )
+
+@router.get("/random-test", response_model=list[QuestionPublic])
+def get_random_test(
+    count: int = 20,
+    subject: str | None = None,
+    db: Session = Depends(get_db)
+):
+    if count < 1 or count > 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Count must be between 1 and 50"
+        )
+
+    query = db.query(Question)
+
+    if subject:
+        query = query.filter(Question.subject == subject)
+
+    return [QuestionPublic.model_validate(question) for question in query.order_by(func.random()).limit(count).all()]
