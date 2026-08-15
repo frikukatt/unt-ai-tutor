@@ -1,5 +1,5 @@
 from sqlalchemy.orm import DeclarativeBase
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text
 from datetime import datetime
 
 
@@ -16,28 +16,62 @@ class User(Base):
     password = Column(String, nullable=False)
 
 
+class TestContext(Base):
+    __tablename__ = "test_contexts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    subject = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    content = Column(Text, nullable=False)
+
+
 class Topic(Base):
     __tablename__ = "topics"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False)
+
     subject = Column(String, nullable=False)
+    name = Column(String, nullable=False)
 
 
 class Question(Base):
     __tablename__ = "questions"
 
     id = Column(Integer, primary_key=True, index=True)
+
     subject = Column(String, nullable=False)
+
     topic = Column(String, nullable=False)
-    topic_id = Column(Integer, ForeignKey("topics.id"), nullable=True)
+
+    topic_id = Column(
+    Integer,
+    ForeignKey("topics.id"),
+    nullable=True
+)
     
+    question_type = Column(
+        String,
+        nullable=False,
+        default="single"
+    )
+
+    context_id = Column(
+        Integer,
+        ForeignKey("test_contexts.id"),
+        nullable=True
+    )
+
     question = Column(String, nullable=False)
+
     option_a = Column(String, nullable=False)
     option_b = Column(String, nullable=False)
     option_c = Column(String, nullable=False)
     option_d = Column(String, nullable=False)
+    option_e = Column(String, nullable=True)
+    option_f = Column(String, nullable=True)
+
     correct_answer = Column(String, nullable=False)
+
     explanation = Column(String, nullable=False)
 
 
@@ -49,11 +83,23 @@ class TestAttempt(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
 
     score = Column(Integer, nullable=False)
-    total = Column(Integer, nullable=False)
-    percentage = Column(Float, nullable=False)
-    test_type = Column(String, nullable=False, default="practice") 
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    max_score = Column(Integer, nullable=False)
+
+    total_questions = Column(Integer, nullable=False)
+
+    percentage = Column(Float, nullable=False)
+
+    test_type = Column(
+        String,
+        nullable=False,
+        default="practice"
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
 
 
 class BookmarkedQuestion(Base):
@@ -61,7 +107,19 @@ class BookmarkedQuestion(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    question_id = Column(Integer, ForeignKey("questions.id"), nullable=False)
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
 
-    created_at = Column(DateTime, default=datetime.utcnow)
+    question_id = Column(
+        Integer,
+        ForeignKey("questions.id"),
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )

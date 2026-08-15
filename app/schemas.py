@@ -14,12 +14,18 @@ class UserLogin(BaseModel):
 class QuestionCreate(BaseModel):
     subject: str
     topic: str
-    topic_id: int | None = None
+    question_type: str = "single"
+    context_id: int | None = None
+
     question: str
+
     option_a: str
     option_b: str
     option_c: str
     option_d: str
+    option_e: str | None = None
+    option_f: str | None = None
+
     correct_answer: str
     explanation: str
 
@@ -30,12 +36,17 @@ class QuestionPublic(BaseModel):
     id: int
     subject: str
     topic: str
-    topic_id: int | None
+    question_type: str
+    context_id: int | None
+
     question: str
+
     option_a: str
     option_b: str
     option_c: str
     option_d: str
+    option_e: str | None = None
+    option_f: str | None = None
 
 
 class QuestionAnswer(BaseModel):
@@ -47,15 +58,32 @@ class AnswerResult(BaseModel):
     question_id: int
     user_answer: str
     correct_answer: str
-    correct: bool
+    points_earned: int
+    max_points: int
     explanation: str
 
 
 class TestResult(BaseModel):
     score: int
-    total: int
+    max_score: int
+    total_questions: int
     percentage: float
     results: list[AnswerResult]
+
+
+class ContextCreate(BaseModel):
+    subject: str
+    title: str
+    content: str
+
+
+class ContextPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    subject: str
+    title: str
+    content: str
 
 
 class TopicCreate(BaseModel):

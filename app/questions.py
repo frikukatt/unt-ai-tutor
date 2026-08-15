@@ -95,6 +95,75 @@ def delete_question(
     db.commit()
     return {"message": "Question deleted successfully"}
 
+def calculate_question_score(
+    question: Question,
+    user_answer: str
+) -> tuple[int, int]:
+
+    question_type = question.question_type.strip().lower()
+
+    if question_type == "single":
+        max_points = 1
+
+        score = (
+            1
+            if question.correct_answer.strip().upper()
+            == user_answer.strip().upper()
+            else 0
+        )
+
+        return score, max_points
+
+    if question_type == "multiple":
+        max_points = 2
+
+        correct_answers = {
+            answer.strip().upper()
+            for answer in question.correct_answer.split(",")
+            if answer.strip()
+        }
+
+        selected_answers = {
+            answer.strip().upper()
+            for answer in user_answer.split(",")
+            if answer.strip()
+        }
+
+        valid_answers = {"A", "B", "C", "D", "E", "F"}
+
+        if not selected_answers.issubset(valid_answers):
+            return 0, max_points
+
+        missing = correct_answers - selected_answers
+        extra = selected_answers - correct_answers
+
+        errors = len(missing) + len(extra)
+
+        if errors == 0:
+            return 2, max_points
+
+        if errors == 1:
+            return 1, max_points
+
+        return 0, max_points
+
+    if question_type == "matching":
+        return 0, 2
+
+    if question_type == "context":
+        max_points = 1
+
+        score = (
+            1
+            if question.correct_answer.strip().upper()
+            == user_answer.strip().upper()
+            else 0
+        )
+
+        return score, max_points
+
+    return 0, 0
+
 @router.post("/submit-test", response_model=TestResult)
 def submit_test(
     answers: list[QuestionAnswer],
@@ -103,7 +172,7 @@ def submit_test(
     current_user: User = Depends(get_current_user)
 ):
     score = 0
-    total = len(answers)
+    max_score = 0
     results = []
 
     for answer in answers:
@@ -111,28 +180,41 @@ def submit_test(
             Question.id == answer.question_id
         ).first()
 
-        if question and question.correct_answer == answer.answer:
-            score += 1
+        if not question:
+            continue
+
+        points, question_max_score = calculate_question_score(
+            question,
+            answer.answer
+        )
+
+        score += points
+        max_score += question_max_score
 
         results.append(
             AnswerResult(
                 question_id=answer.question_id,
                 user_answer=answer.answer,
-                correct_answer=question.correct_answer if question else "",
-                correct=(
-                    question.correct_answer == answer.answer
-                    if question else False
-                ),
-                explanation=question.explanation if question else ""
+                correct_answer=question.correct_answer,
+                points_earned=points,
+                max_points=question_max_score,
+                explanation=question.explanation
             )
         )
 
-    percentage = round((score / total) * 100, 2) if total > 0 else 0
+    total_questions = len(results)
+
+    percentage = (
+        round((score / max_score) * 100, 2)
+        if max_score > 0
+        else 0
+    )
 
     attempt = TestAttempt(
         user_id=current_user.id,
         score=score,
-        total=total,
+        max_score=max_score,
+        total_questions=total_questions,
         percentage=percentage,
         test_type=test_type
     )
@@ -142,7 +224,8 @@ def submit_test(
 
     return TestResult(
         score=score,
-        total=total,
+        max_score=max_score,
+        total_questions=total_questions,
         percentage=percentage,
         results=results
     )
