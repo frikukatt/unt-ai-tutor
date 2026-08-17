@@ -23,6 +23,7 @@ class QuestionCreate(BaseModel):
     option_b: str
     option_c: str
     option_d: str
+
     option_e: str | None = None
     option_f: str | None = None
 
@@ -45,6 +46,7 @@ class QuestionPublic(BaseModel):
     option_b: str
     option_c: str
     option_d: str
+    
     option_e: str | None = None
     option_f: str | None = None
 
@@ -99,3 +101,18 @@ class TopicResponse(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+class TestContextCreate(BaseModel):
+    subject: str
+    title: str
+    content: str
+
+
+class TestContextPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    subject: str
+    title: str
+    content: str

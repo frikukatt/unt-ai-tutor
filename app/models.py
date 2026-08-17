@@ -102,6 +102,35 @@ class TestAttempt(Base):
     )
 
 
+class TestSession(Base):
+    __tablename__ = "test_sessions"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    test_type = Column(
+        String,
+        nullable=False,
+        default="practice"
+    )
+
+    started_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False
+    )
+
+    expires_at = Column(
+        DateTime,
+        nullable=False
+    )
+
+
 class BookmarkedQuestion(Base):
     __tablename__ = "bookmarked_questions"
 

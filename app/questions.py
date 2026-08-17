@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult, QuestionPublic
-from app.models import Question, TestAttempt, User, Topic
+from app.models import Question, TestAttempt, User, Topic, TestSession
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
 from app.security import get_current_user
-
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
@@ -95,6 +95,28 @@ def delete_question(
     db.commit()
     return {"message": "Question deleted successfully"}
 
+
+def parse_matching_answer(answer: str) -> set[str]:
+    pairs = set()
+
+    for pair in answer.split(","):
+        pair = pair.strip().upper()
+
+        if ":" not in pair:
+            continue
+
+        letter, number = pair.split(":", 1)
+
+        if letter not in {"A", "B"}:
+            continue
+
+        if number not in {"1", "2", "3", "4"}:
+            continue
+
+        pairs.add(f"{letter}:{number}")
+
+    return pairs
+
 def calculate_question_score(
     question: Question,
     user_answer: str
@@ -147,9 +169,6 @@ def calculate_question_score(
 
         return 0, max_points
 
-    if question_type == "matching":
-        return 0, 2
-
     if question_type == "context":
         max_points = 1
 
@@ -163,6 +182,59 @@ def calculate_question_score(
         return score, max_points
 
     return 0, 0
+
+    if question_type == "matching":
+        max_points = 2
+
+        correct_pairs = {
+            pair.strip().upper()
+            for pair in question.correct_answer.split(",")
+            if pair.strip()
+        }
+
+        selected_pairs = {
+            pair.strip().upper()
+            for pair in user_answer.split(",")
+            if pair.strip()
+        }
+
+        correct_count = len(correct_pairs & selected_pairs)
+
+        if correct_count == len(correct_pairs):
+            return 2, max_points
+
+        if correct_count > 0:
+            return 1, max_points
+
+        return 0, max_points
+
+
+@router.post("/start-test")
+def start_test(
+    test_type: str = "practice",
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    started_at = datetime.utcnow()
+    expires_at = started_at + timedelta(minutes=240)
+
+    session = TestSession(
+        user_id=current_user.id,
+        test_type=test_type,
+        started_at=started_at,
+        expires_at=expires_at
+    )
+
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    return {
+        "session_id": session.id,
+        "started_at": session.started_at,
+        "expires_at": session.expires_at,
+        "duration_minutes": 240
+    }
 
 @router.post("/submit-test", response_model=TestResult)
 def submit_test(
