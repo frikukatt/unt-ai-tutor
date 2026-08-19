@@ -14,6 +14,8 @@ class UserLogin(BaseModel):
 class QuestionCreate(BaseModel):
     subject: str
     topic: str
+    ent_section: str
+
     question_type: str = "single"
     context_id: int | None = None
 
@@ -23,13 +25,11 @@ class QuestionCreate(BaseModel):
     option_b: str
     option_c: str
     option_d: str
-
     option_e: str | None = None
     option_f: str | None = None
 
     correct_answer: str
     explanation: str
-
 
 class QuestionPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -37,6 +37,8 @@ class QuestionPublic(BaseModel):
     id: int
     subject: str
     topic: str
+    ent_section: str
+    
     question_type: str
     context_id: int | None
 

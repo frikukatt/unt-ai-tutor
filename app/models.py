@@ -61,6 +61,11 @@ class Question(Base):
         nullable=True
     )
 
+    ent_section = Column(
+    String,
+    nullable=False
+)
+
     question = Column(String, nullable=False)
 
     option_a = Column(String, nullable=False)

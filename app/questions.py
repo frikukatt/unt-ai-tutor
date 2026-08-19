@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult, QuestionPublic
-from app.models import Question, TestAttempt, User, Topic, TestSession
+from app.models import Question, TestAttempt, User, TestSession
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
@@ -151,11 +151,6 @@ def calculate_question_score(
             if answer.strip()
         }
 
-        valid_answers = {"A", "B", "C", "D", "E", "F"}
-
-        if not selected_answers.issubset(valid_answers):
-            return 0, max_points
-
         missing = correct_answers - selected_answers
         extra = selected_answers - correct_answers
 
@@ -169,36 +164,20 @@ def calculate_question_score(
 
         return 0, max_points
 
-    if question_type == "context":
-        max_points = 1
-
-        score = (
-            1
-            if question.correct_answer.strip().upper()
-            == user_answer.strip().upper()
-            else 0
-        )
-
-        return score, max_points
-
-    return 0, 0
-
     if question_type == "matching":
         max_points = 2
 
-        correct_pairs = {
-            pair.strip().upper()
-            for pair in question.correct_answer.split(",")
-            if pair.strip()
-        }
+        correct_pairs = parse_matching_answer(
+            question.correct_answer
+        )
 
-        selected_pairs = {
-            pair.strip().upper()
-            for pair in user_answer.split(",")
-            if pair.strip()
-        }
+        selected_pairs = parse_matching_answer(
+            user_answer
+        )
 
-        correct_count = len(correct_pairs & selected_pairs)
+        correct_count = len(
+            correct_pairs & selected_pairs
+        )
 
         if correct_count == len(correct_pairs):
             return 2, max_points
@@ -207,6 +186,8 @@ def calculate_question_score(
             return 1, max_points
 
         return 0, max_points
+
+    return 0, 0
 
 
 @router.post("/start-test")
@@ -239,10 +220,27 @@ def start_test(
 @router.post("/submit-test", response_model=TestResult)
 def submit_test(
     answers: list[QuestionAnswer],
-    test_type: str = "practice",
+    session_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    session = db.query(TestSession).filter(
+        TestSession.id == session_id,
+        TestSession.user_id == current_user.id
+    ).first()
+
+    if not session:
+        raise HTTPException(
+            status_code=404,
+            detail="Test session not found"
+        )
+
+    if datetime.utcnow() > session.expires_at:
+        raise HTTPException(
+            status_code=400,
+            detail="Test time has expired"
+        )
+    
     score = 0
     max_score = 0
     results = []
@@ -312,6 +310,133 @@ def get_attempts(
         .filter(TestAttempt.user_id == current_user.id)
         .all()
     )
+
+
+def get_profile_questions(
+    db: Session,
+    subject: str
+):
+    questions = []
+
+    single = (
+        db.query(Question)
+        .filter(
+            Question.ent_section == "profile",
+            Question.subject == subject,
+            Question.question_type == "single",
+            Question.context_id.is_(None)
+        )
+        .order_by(func.random())
+        .limit(25)
+        .all()
+    )
+
+    context = (
+    db.query(Question)
+    .filter(
+        Question.ent_section == "profile",
+        Question.subject == subject,
+        Question.question_type == "single",
+        Question.context_id.isnot(None)
+    )
+    .order_by(func.random())
+    .limit(5)
+    .all()
+)
+
+    matching = (
+        db.query(Question)
+        .filter(
+            Question.ent_section == "profile",
+            Question.subject == subject,
+            Question.question_type == "matching"
+        )
+        .order_by(func.random())
+        .limit(5)
+        .all()
+    )
+
+    multiple = (
+        db.query(Question)
+        .filter(
+            Question.ent_section == "profile",
+            Question.subject == subject,
+            Question.question_type == "multiple"
+        )
+        .order_by(func.random())
+        .limit(5)
+        .all()
+    )
+
+    questions.extend(single)
+    questions.extend(context)
+    questions.extend(matching)
+    questions.extend(multiple)
+
+    return questions
+
+
+@router.get("/ent-test", response_model=list[QuestionPublic])
+def get_ent_test(
+    profile_subject: str,
+    profile_subject_2: str,
+    db: Session = Depends(get_db)
+):
+    questions = []
+
+    math_literacy = (
+        db.query(Question)
+        .filter(
+            Question.ent_section == "mathematical_literacy"
+        )
+        .order_by(func.random())
+        .limit(10)
+        .all()
+    )
+
+    reading_literacy = (
+        db.query(Question)
+        .filter(
+            Question.ent_section == "reading_literacy"
+        )
+        .order_by(func.random())
+        .limit(10)
+        .all()
+    )
+
+    history = (
+        db.query(Question)
+        .filter(
+            Question.ent_section == "kazakhstan_history"
+        )
+        .order_by(func.random())
+        .limit(20)
+        .all()
+    )
+
+    profile_1 = get_profile_questions(
+    db,
+    profile_subject
+)
+
+    profile_2 = get_profile_questions(
+    db,
+    profile_subject_2
+)
+
+    questions.extend(math_literacy)
+    questions.extend(reading_literacy)
+    questions.extend(history)
+    questions.extend(profile_1)
+    questions.extend(profile_2)
+
+    if len(questions) != 120:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Not enough questions. Only {len(questions)} available."
+        )
+
+    return questions
 
 @router.get("/random-test", response_model=list[QuestionPublic])
 def get_random_test(
