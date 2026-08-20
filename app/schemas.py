@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel, ConfigDict, EmailStr
 
 class UserCreate(BaseModel):
@@ -118,3 +119,15 @@ class TestContextPublic(BaseModel):
     subject: str
     title: str
     content: str
+
+
+class AttemptPublic(BaseModel):
+    id: int
+    score: int
+    max_score: int
+    total_questions: int
+    percentage: float
+    test_type: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

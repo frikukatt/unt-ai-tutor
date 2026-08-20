@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult, QuestionPublic
+from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult, QuestionPublic, AttemptPublic
 from app.models import Question, TestAttempt, User, TestSession
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -300,16 +300,31 @@ def submit_test(
         results=results
     )
 
-@router.get("/attempts")
-def get_attempts(
+@router.get(
+    "/attempts/{attempt_id}",
+    response_model=AttemptPublic
+)
+def get_attempt(
+    attempt_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    return (
+    attempt = (
         db.query(TestAttempt)
-        .filter(TestAttempt.user_id == current_user.id)
-        .all()
+        .filter(
+            TestAttempt.id == attempt_id,
+            TestAttempt.user_id == current_user.id
+        )
+        .first()
     )
+
+    if not attempt:
+        raise HTTPException(
+            status_code=404,
+            detail="Attempt not found"
+        )
+
+    return attempt
 
 
 def get_profile_questions(
