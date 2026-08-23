@@ -22,24 +22,34 @@ class QuestionCreate(BaseModel):
 
     question: str
 
-    option_a: str
-    option_b: str
-    option_c: str
-    option_d: str
+    option_a: str = ""
+    option_b: str = ""
+    option_c: str = ""
+    option_d: str = ""
     option_e: str | None = None
     option_f: str | None = None
 
+    matching_a: str | None = None
+    matching_b: str | None = None
+
+    matching_1: str | None = None
+    matching_2: str | None = None
+    matching_3: str | None = None
+    matching_4: str | None = None
+
     correct_answer: str
     explanation: str
+
 
 class QuestionPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+
     subject: str
     topic: str
     ent_section: str
-    
+
     question_type: str
     context_id: int | None
 
@@ -49,9 +59,16 @@ class QuestionPublic(BaseModel):
     option_b: str
     option_c: str
     option_d: str
-    
     option_e: str | None = None
     option_f: str | None = None
+
+    matching_a: str | None = None
+    matching_b: str | None = None
+
+    matching_1: str | None = None
+    matching_2: str | None = None
+    matching_3: str | None = None
+    matching_4: str | None = None
 
 
 class QuestionAnswer(BaseModel):

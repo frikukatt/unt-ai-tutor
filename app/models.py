@@ -40,15 +40,9 @@ class Question(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     subject = Column(String, nullable=False)
-
     topic = Column(String, nullable=False)
+    ent_section = Column(String, nullable=False)
 
-    topic_id = Column(
-    Integer,
-    ForeignKey("topics.id"),
-    nullable=True
-)
-    
     question_type = Column(
         String,
         nullable=False,
@@ -61,19 +55,23 @@ class Question(Base):
         nullable=True
     )
 
-    ent_section = Column(
-    String,
-    nullable=False
-)
-
     question = Column(String, nullable=False)
 
+    # Обычные варианты ответа
     option_a = Column(String, nullable=False)
     option_b = Column(String, nullable=False)
     option_c = Column(String, nullable=False)
     option_d = Column(String, nullable=False)
     option_e = Column(String, nullable=True)
     option_f = Column(String, nullable=True)
+
+    matching_a = Column(String, nullable=True)
+    matching_b = Column(String, nullable=True)
+
+    matching_1 = Column(String, nullable=True)
+    matching_2 = Column(String, nullable=True)
+    matching_3 = Column(String, nullable=True)
+    matching_4 = Column(String, nullable=True)
 
     correct_answer = Column(String, nullable=False)
 
