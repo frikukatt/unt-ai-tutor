@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult, QuestionPublic, AttemptPublic
-from app.models import Question, TestAttempt, User, TestSession
+from app.models import Question, TestAttempt, User, TestSession, QuestionResult
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from app.database import get_db
@@ -130,10 +130,14 @@ def submit_test(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    session = db.query(TestSession).filter(
-        TestSession.id == session_id,
-        TestSession.user_id == current_user.id
-    ).first()
+    session = (
+        db.query(TestSession)
+        .filter(
+            TestSession.id == session_id,
+            TestSession.user_id == current_user.id
+        )
+        .first()
+    )
 
     if not session:
         raise HTTPException(
@@ -146,22 +150,32 @@ def submit_test(
             status_code=400,
             detail="Test time has expired"
         )
-    
+
     score = 0
     max_score = 0
+
     results = []
 
+    question_results = []
+
     for answer in answers:
-        question = db.query(Question).filter(
-            Question.id == answer.question_id
-        ).first()
+
+        question = (
+            db.query(Question)
+            .filter(
+                Question.id == answer.question_id
+            )
+            .first()
+        )
 
         if not question:
             continue
 
-        points, question_max_score = calculate_question_score(
-            question,
-            answer.answer
+        points, question_max_score = (
+            calculate_question_score(
+                question,
+                answer.answer
+            )
         )
 
         score += points
@@ -178,10 +192,22 @@ def submit_test(
             )
         )
 
+        question_results.append(
+            {
+                "question_id": question.id,
+                "user_answer": answer.answer,
+                "points_earned": points,
+                "max_points": question_max_score
+            }
+        )
+
     total_questions = len(results)
 
     percentage = (
-        round((score / max_score) * 100, 2)
+        round(
+            (score / max_score) * 100,
+            2
+        )
         if max_score > 0
         else 0
     )
@@ -192,10 +218,26 @@ def submit_test(
         max_score=max_score,
         total_questions=total_questions,
         percentage=percentage,
-        test_type=test_type
+
+        test_type=session.test_type
     )
 
     db.add(attempt)
+
+    db.flush()
+
+    for result in question_results:
+
+        question_result = QuestionResult(
+            attempt_id=attempt.id,
+            question_id=result["question_id"],
+            user_answer=result["user_answer"],
+            points_earned=result["points_earned"],
+            max_points=result["max_points"]
+        )
+
+        db.add(question_result)
+
     db.commit()
 
     return TestResult(

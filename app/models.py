@@ -155,3 +155,32 @@ class BookmarkedQuestion(Base):
         DateTime,
         default=datetime.utcnow
     )
+
+
+class QuestionResult(Base):
+    __tablename__ = "question_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    attempt_id = Column(
+        Integer,
+        ForeignKey("test_attempts.id"),
+        nullable=False
+    )
+
+    question_id = Column(
+        Integer,
+        ForeignKey("questions.id"),
+        nullable=False
+    )
+
+    user_answer = Column(String, nullable=False)
+
+    points_earned = Column(Integer, nullable=False)
+
+    max_points = Column(Integer, nullable=False)
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow
+    )
