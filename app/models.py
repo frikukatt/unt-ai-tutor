@@ -184,3 +184,55 @@ class QuestionResult(Base):
         DateTime,
         default=datetime.utcnow
     )
+
+
+class SkillProfile(Base):
+    __tablename__ = "skill_profiles"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    user_id = Column(
+        Integer,
+        ForeignKey("users.id"),
+        nullable=False
+    )
+
+    subject = Column(
+        String,
+        nullable=False
+    )
+
+    topic = Column(
+        String,
+        nullable=False
+    )
+
+    total_questions = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    correct_questions = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    total_points = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    max_points = Column(
+        Integer,
+        nullable=False,
+        default=0
+    )
+
+    accuracy = Column(
+        Float,
+        nullable=False,
+        default=0
+    )

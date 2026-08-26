@@ -148,3 +148,21 @@ class AttemptPublic(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class SkillProfileResponse(BaseModel):
+    id: int
+    subject: str
+    topic: str
+
+    total_questions: int
+    correct_questions: int
+
+    total_points: int
+    max_points: int
+
+    accuracy: float
+
+    model_config = ConfigDict(
+        from_attributes=True
+    )
