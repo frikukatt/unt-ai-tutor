@@ -14,6 +14,7 @@ from app.bookmarks import router as bookmarks_router
 from app.categories import router as categories_router
 from app.topics import router as topics_router
 from app.contexts import router as contexts_router
+from app.ai import router as ai_router
 app = FastAPI()
 
 Base.metadata.create_all(bind=engine)
@@ -27,3 +28,4 @@ app.include_router(bookmarks_router)
 app.include_router(categories_router)
 app.include_router(topics_router)
 app.include_router(contexts_router)
+app.include_router(ai_router)
