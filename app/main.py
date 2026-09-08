@@ -1,6 +1,4 @@
 from fastapi import FastAPI
-from app.routes import router
-from app.register import router as register_router
 
 from app.database import engine
 from app.models import Base
