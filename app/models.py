@@ -236,3 +236,29 @@ class SkillProfile(Base):
         nullable=False,
         default=0
     )
+
+
+class AIAnalysis(Base):
+    __tablename__ = "ai_analyses"
+
+    id = Column(Integer, primary_key=True, index=True)
+
+    attempt_id = Column(
+        Integer,
+        ForeignKey("test_attempts.id"),
+        unique=True,
+        nullable=False
+    )
+
+    summary = Column(Text, nullable=False)
+
+    analysis_json = Column(
+        Text,
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime,
+        default=datetime.utcnow,
+        nullable=False
+    )

@@ -1,11 +1,9 @@
-from app.ai_service import (
-    explain_answer,
-    analyze_ent_results,
-)
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, joinedload
 from pydantic import BaseModel
+from sqlalchemy import func
+from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import (
@@ -13,8 +11,10 @@ from app.models import (
     TestAttempt,
     QuestionResult,
     Question,
+    AIAnalysis
 )
 from app.security import get_current_user
+from app.ai_service import explain_answer, analyze_ent_results
 
 
 router = APIRouter(
@@ -60,6 +60,7 @@ def analyze_attempt(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
+    # Проверяем, что попытка принадлежит текущему пользователю
     attempt = (
         db.query(TestAttempt)
         .filter(
@@ -75,6 +76,52 @@ def analyze_attempt(
             detail="Test attempt not found"
         )
 
+    saved_analysis = (
+        db.query(AIAnalysis)
+        .filter(
+            AIAnalysis.attempt_id == attempt.id
+        )
+        .first()
+    )
+
+    if saved_analysis:
+        import json
+
+        return {
+            "attempt_id": attempt.id,
+            "analysis": json.loads(saved_analysis.analysis_json),
+            "cached": True
+        }
+
+    # Максимум 3 НОВЫХ анализа в сутки
+    today_start = datetime.utcnow().replace(
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0
+    )
+
+    analyses_today = (
+        db.query(func.count(AIAnalysis.id))
+        .filter(
+            AIAnalysis.attempt_id.in_(
+                db.query(TestAttempt.id)
+                .filter(
+                    TestAttempt.user_id == current_user.id
+                )
+            ),
+            AIAnalysis.created_at >= today_start
+        )
+        .scalar()
+    )
+
+    if analyses_today >= 3:
+        raise HTTPException(
+            status_code=429,
+            detail="Daily AI analysis limit reached. Try again tomorrow."
+        )
+
+    # Получаем результаты вопросов
     results = (
         db.query(
             QuestionResult,
@@ -96,6 +143,7 @@ def analyze_attempt(
             detail="No question results found for this attempt"
         )
 
+    # Формируем данные для AI
     student_data = f"""
 Результат тестирования ученика:
 
@@ -132,12 +180,32 @@ def analyze_attempt(
     try:
         analysis = analyze_ent_results(student_data)
 
+        import json
+
+        analysis_data = analysis.model_dump()
+
+        saved_analysis = AIAnalysis(
+            attempt_id=attempt.id,
+            summary=analysis_data["summary"],
+            analysis_json=json.dumps(
+                analysis_data,
+                ensure_ascii=False
+            )
+        )
+
+        db.add(saved_analysis)
+        db.commit()
+        db.refresh(saved_analysis)
+
         return {
             "attempt_id": attempt.id,
-            "analysis": analysis.model_dump()
+            "analysis": analysis_data,
+            "cached": False
         }
 
     except Exception as e:
+        db.rollback()
+
         raise HTTPException(
             status_code=500,
             detail=f"AI analysis error: {str(e)}"
