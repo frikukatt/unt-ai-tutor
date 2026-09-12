@@ -11,7 +11,8 @@ from app.models import (
     TestAttempt,
     QuestionResult,
     Question,
-    AIAnalysis
+    AIAnalysis,
+    SkillProfile
 )
 from app.security import get_current_user
 from app.ai_service import explain_answer, analyze_ent_results
@@ -143,7 +144,19 @@ def analyze_attempt(
             detail="No question results found for this attempt"
         )
 
-    # Формируем данные для AI
+    # Получаем накопленную статистику ученика
+    skill_profiles = (
+    db.query(SkillProfile)
+    .filter(
+        SkillProfile.user_id == current_user.id
+    )
+    .order_by(
+        SkillProfile.subject,
+        SkillProfile.topic
+    )
+    .all()
+)
+
     student_data = f"""
 Результат тестирования ученика:
 
@@ -153,7 +166,26 @@ def analyze_attempt(
 - Количество вопросов: {attempt.total_questions}
 - Тип теста: {attempt.test_type}
 
-Результаты по вопросам:
+    Накопленная статистика ученика:
+    """
+
+    if skill_profiles:
+        for skill in skill_profiles:
+            student_data += f"""
+- Предмет: {skill.subject}
+- Тема: {skill.topic}
+- Всего вопросов: {skill.total_questions}
+- Правильных ответов: {skill.correct_questions}
+- Точность: {skill.accuracy}%
+"""
+    else:
+        student_data += """
+Данных накопленной статистики пока нет.
+"""
+
+    student_data += """
+
+Результаты текущего теста:
 """
 
     for result, question in results:
