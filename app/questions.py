@@ -1,22 +1,46 @@
-from fastapi import APIRouter, Depends, HTTPException
-from app.schemas import AnswerResult, QuestionAnswer, QuestionCreate, TestResult, QuestionPublic, AttemptPublic
-from app.models import Question, TestAttempt, User, TestSession, QuestionResult
-from sqlalchemy.orm import Session
-from sqlalchemy import func
-from app.database import get_db
-from app.security import get_current_user
 from datetime import datetime, timedelta
+
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from app.database import get_db
+from app.models import (
+    Question,
+    TestAttempt,
+    User,
+    TestSession,
+    QuestionResult,
+    SkillProfile
+)
+from app.schemas import (
+    AnswerResult,
+    QuestionAnswer,
+    QuestionCreate,
+    TestResult,
+    QuestionPublic,
+    AttemptPublic
+)
 from app.scoring import calculate_question_score
+from app.security import get_current_user
+
 
 router = APIRouter()
 
+
 @router.post("/questions")
-def create_question(question: QuestionCreate, db: Session = Depends(get_db)):
+def create_question(
+    question: QuestionCreate,
+    db: Session = Depends(get_db)
+):
     db_question = Question(**question.model_dump())
+
     db.add(db_question)
     db.commit()
     db.refresh(db_question)
+
     return db_question
+
 
 @router.get("/questions")
 def get_questions(
@@ -28,16 +52,23 @@ def get_questions(
     db: Session = Depends(get_db)
 ):
     query = db.query(Question)
+
     limit = 10
 
     if subject:
-        query = query.filter(Question.subject == subject)
+        query = query.filter(
+            Question.subject == subject
+        )
 
     if topic:
-        query = query.filter(Question.topic == topic)
+        query = query.filter(
+            Question.topic == topic
+        )
 
+    # В текущей модели Question нет topic_id.
+    # Поэтому этот параметр пока не используется.
     if topic_id:
-        query = query.filter(Question.topic_id == topic_id)
+        pass
 
     if search:
         query = query.filter(
@@ -46,18 +77,33 @@ def get_questions(
 
     offset = (page - 1) * limit
 
-    return query.offset(offset).limit(limit).all()
+    return (
+        query
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
 
 @router.get("/questions/{question_id}")
-def get_question(question_id: int, db: Session = Depends(get_db)):
-    question = db.query(Question).filter(Question.id == question_id).first()
+def get_question(
+    question_id: int,
+    db: Session = Depends(get_db)
+):
+    question = (
+        db.query(Question)
+        .filter(Question.id == question_id)
+        .first()
+    )
 
     if question is None:
         raise HTTPException(
             status_code=404,
             detail="Question not found"
         )
+
     return question
+
 
 @router.put("/questions/{question_id}")
 def update_question(
@@ -65,26 +111,37 @@ def update_question(
     question_data: QuestionCreate,
     db: Session = Depends(get_db)
 ):
-    question = db.query(Question).filter(Question.id == question_id).first()
+    question = (
+        db.query(Question)
+        .filter(Question.id == question_id)
+        .first()
+    )
 
     if question is None:
         raise HTTPException(
             status_code=404,
             detail="Question not found"
         )
+
     for key, value in question_data.model_dump().items():
         setattr(question, key, value)
 
     db.commit()
     db.refresh(question)
+
     return question
+
 
 @router.delete("/questions/{question_id}")
 def delete_question(
     question_id: int,
     db: Session = Depends(get_db)
 ):
-    question = db.query(Question).filter(Question.id == question_id).first()
+    question = (
+        db.query(Question)
+        .filter(Question.id == question_id)
+        .first()
+    )
 
     if question is None:
         raise HTTPException(
@@ -94,7 +151,11 @@ def delete_question(
 
     db.delete(question)
     db.commit()
-    return {"message": "Question deleted successfully"}
+
+    return {
+        "message": "Question deleted successfully"
+    }
+
 
 @router.post("/start-test")
 def start_test(
@@ -123,7 +184,11 @@ def start_test(
         "duration_minutes": 240
     }
 
-@router.post("/submit-test", response_model=TestResult)
+
+@router.post(
+    "/submit-test",
+    response_model=TestResult
+)
 def submit_test(
     answers: list[QuestionAnswer],
     session_id: int,
@@ -155,7 +220,6 @@ def submit_test(
     max_score = 0
 
     results = []
-
     question_results = []
 
     for answer in answers:
@@ -197,7 +261,9 @@ def submit_test(
                 "question_id": question.id,
                 "user_answer": answer.answer,
                 "points_earned": points,
-                "max_points": question_max_score
+                "max_points": question_max_score,
+                "subject": question.subject,
+                "topic": question.topic
             }
         )
 
@@ -218,12 +284,10 @@ def submit_test(
         max_score=max_score,
         total_questions=total_questions,
         percentage=percentage,
-
         test_type=session.test_type
     )
 
     db.add(attempt)
-
     db.flush()
 
     for result in question_results:
@@ -238,6 +302,59 @@ def submit_test(
 
         db.add(question_result)
 
+        # ------------------------------------------
+        # UPDATE SKILL PROFILE
+        # ------------------------------------------
+
+        skill_profile = (
+            db.query(SkillProfile)
+            .filter(
+                SkillProfile.user_id == current_user.id,
+                SkillProfile.subject == result["subject"],
+                SkillProfile.topic == result["topic"]
+            )
+            .first()
+        )
+
+        if not skill_profile:
+            skill_profile = SkillProfile(
+                user_id=current_user.id,
+                subject=result["subject"],
+                topic=result["topic"],
+                total_questions=0,
+                correct_questions=0,
+                total_points=0,
+                max_points=0,
+                accuracy=0
+            )
+
+            db.add(skill_profile)
+
+        skill_profile.total_questions += 1
+
+        skill_profile.total_points += (
+            result["points_earned"]
+        )
+
+        skill_profile.max_points += (
+            result["max_points"]
+        )
+
+        if (
+            result["points_earned"]
+            == result["max_points"]
+        ):
+            skill_profile.correct_questions += 1
+
+        if skill_profile.total_questions > 0:
+            skill_profile.accuracy = round(
+                (
+                    skill_profile.correct_questions
+                    / skill_profile.total_questions
+                ) * 100,
+                2
+            )
+
     db.commit()
 
     return TestResult(
@@ -247,6 +364,7 @@ def submit_test(
         percentage=percentage,
         results=results
     )
+
 
 @router.get(
     "/attempts/{attempt_id}",
@@ -295,17 +413,17 @@ def get_profile_questions(
     )
 
     context = (
-    db.query(Question)
-    .filter(
-        Question.ent_section == "profile",
-        Question.subject == subject,
-        Question.question_type == "single",
-        Question.context_id.isnot(None)
+        db.query(Question)
+        .filter(
+            Question.ent_section == "profile",
+            Question.subject == subject,
+            Question.question_type == "single",
+            Question.context_id.isnot(None)
+        )
+        .order_by(func.random())
+        .limit(5)
+        .all()
     )
-    .order_by(func.random())
-    .limit(5)
-    .all()
-)
 
     matching = (
         db.query(Question)
@@ -339,7 +457,10 @@ def get_profile_questions(
     return questions
 
 
-@router.get("/ent-test", response_model=list[QuestionPublic])
+@router.get(
+    "/ent-test",
+    response_model=list[QuestionPublic]
+)
 def get_ent_test(
     profile_subject: str,
     profile_subject_2: str,
@@ -378,14 +499,14 @@ def get_ent_test(
     )
 
     profile_1 = get_profile_questions(
-    db,
-    profile_subject
-)
+        db,
+        profile_subject
+    )
 
     profile_2 = get_profile_questions(
-    db,
-    profile_subject_2
-)
+        db,
+        profile_subject_2
+    )
 
     questions.extend(math_literacy)
     questions.extend(reading_literacy)
@@ -396,12 +517,19 @@ def get_ent_test(
     if len(questions) != 120:
         raise HTTPException(
             status_code=400,
-            detail=f"Not enough questions. Only {len(questions)} available."
+            detail=(
+                f"Not enough questions. "
+                f"Only {len(questions)} available."
+            )
         )
 
     return questions
 
-@router.get("/random-test", response_model=list[QuestionPublic])
+
+@router.get(
+    "/random-test",
+    response_model=list[QuestionPublic]
+)
 def get_random_test(
     count: int = 20,
     subject: str | None = None,
@@ -416,6 +544,16 @@ def get_random_test(
     query = db.query(Question)
 
     if subject:
-        query = query.filter(Question.subject == subject)
+        query = query.filter(
+            Question.subject == subject
+        )
 
-    return [QuestionPublic.model_validate(question) for question in query.order_by(func.random()).limit(count).all()]
+    return [
+        QuestionPublic.model_validate(question)
+        for question in (
+            query
+            .order_by(func.random())
+            .limit(count)
+            .all()
+        )
+    ]
