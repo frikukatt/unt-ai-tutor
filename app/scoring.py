@@ -30,6 +30,10 @@ def calculate_question_score(
 
     question_type = question.question_type.strip().lower()
 
+    # ------------------------------------------
+    # SINGLE
+    # ------------------------------------------
+
     if question_type == "single":
         max_points = 1
 
@@ -41,6 +45,10 @@ def calculate_question_score(
         )
 
         return score, max_points
+
+    # ------------------------------------------
+    # MULTIPLE
+    # ------------------------------------------
 
     if question_type == "multiple":
         max_points = 2
@@ -57,18 +65,31 @@ def calculate_question_score(
             if answer.strip()
         }
 
+        # Полностью правильный ответ
+        if selected_answers == correct_answers:
+            return 2, max_points
+
         missing = correct_answers - selected_answers
         extra = selected_answers - correct_answers
 
-        errors = len(missing) + len(extra)
-
-        if errors == 0:
-            return 2, max_points
-
-        if errors == 1:
+        # Одна ошибка:
+        # 1. пропущен один правильный ответ
+        # 2. добавлен один неправильный ответ
+        # 3. один правильный ответ заменён одним неправильным
+        if (
+            (len(missing) == 1 and len(extra) == 0)
+            or
+            (len(missing) == 0 and len(extra) == 1)
+            or
+            (len(missing) == 1 and len(extra) == 1)
+        ):
             return 1, max_points
 
         return 0, max_points
+
+    # ------------------------------------------
+    # MATCHING
+    # ------------------------------------------
 
     if question_type == "matching":
         max_points = 2
@@ -96,4 +117,4 @@ def calculate_question_score(
 
         return 0, max_points
 
-    return 0, 0
+    return 0, 0 

@@ -34,6 +34,16 @@ class ExplainRequest(BaseModel):
     topic: str
 
 
+def has_knowledge_context(context: str) -> bool:
+    if not context or not context.strip():
+        return False
+
+    return (
+        "Подходящих фрагментов учебных материалов не найдено."
+        not in context
+    )
+
+
 @router.post("/explain")
 def explain_question(
     data: ExplainRequest,
@@ -47,18 +57,24 @@ def explain_question(
             limit=5
         )
 
+        knowledge_used = has_knowledge_context(
+            knowledge_context
+        )
+
         explanation = explain_answer(
             question=data.question,
             user_answer=data.user_answer,
             correct_answer=data.correct_answer,
             subject=data.subject,
             topic=data.topic,
-            knowledge_context=knowledge_context
+            knowledge_context=(
+                knowledge_context if knowledge_used else ""
+            )
         )
 
         return {
             "explanation": explanation,
-            "knowledge_used": bool(knowledge_context)
+            "knowledge_used": knowledge_used
         }
 
     except Exception as e:
@@ -100,9 +116,11 @@ def analyze_attempt(
     if saved_analysis:
         return {
             "attempt_id": attempt.id,
-            "analysis": json.loads(saved_analysis.analysis_json),
+            "analysis": json.loads(
+                saved_analysis.analysis_json
+            ),
             "cached": True,
-            "knowledge_used": False
+            "knowledge_used": None
         }
 
     today_start = datetime.utcnow().replace(
@@ -116,8 +134,7 @@ def analyze_attempt(
         db.query(func.count(AIAnalysis.id))
         .filter(
             AIAnalysis.attempt_id.in_(
-                db.query(TestAttempt.id)
-                .filter(
+                db.query(TestAttempt.id).filter(
                     TestAttempt.user_id == current_user.id
                 )
             ),
@@ -129,7 +146,10 @@ def analyze_attempt(
     if analyses_today >= 3:
         raise HTTPException(
             status_code=429,
-            detail="Daily AI analysis limit reached. Try again tomorrow."
+            detail=(
+                "Daily AI analysis limit reached. "
+                "Try again tomorrow."
+            )
         )
 
     results = (
@@ -183,8 +203,8 @@ def analyze_attempt(
 - Предмет: {skill.subject}
 - Тема: {skill.topic}
 - Всего вопросов: {skill.total_questions}
-- Правильных ответов: {skill.correct_questions}
-- Точность: {skill.accuracy}%
+- Полностью правильных ответов: {skill.correct_questions}
+- Точность полностью правильных ответов: {skill.accuracy}%
 """
     else:
         student_data += """
@@ -199,23 +219,21 @@ def analyze_attempt(
         )
 
         if not is_correct:
-            errors.append(
-                {
-                    "subject": question.subject,
-                    "topic": question.topic,
-                    "ent_section": question.ent_section,
-                    "question_type": question.question_type,
-                    "question": question.question,
-                    "user_answer": result.user_answer,
-                    "correct_answer": question.correct_answer,
-                    "points_earned": result.points_earned,
-                    "max_points": result.max_points
-                }
-            )
+            errors.append({
+                "subject": question.subject,
+                "topic": question.topic,
+                "ent_section": question.ent_section,
+                "question_type": question.question_type,
+                "question": question.question,
+                "user_answer": result.user_answer,
+                "correct_answer": question.correct_answer,
+                "points_earned": result.points_earned,
+                "max_points": result.max_points
+            })
 
     student_data += """
 
-Ошибки в текущем тесте:
+Ошибки и частично правильные ответы в текущем тесте:
 
 """
 
@@ -249,29 +267,30 @@ def analyze_attempt(
 {error["points_earned"]}/{error["max_points"]}
 
 ---
+
 """
     else:
         student_data += """
-В текущем тесте ошибок нет.
+В текущем тесте все ответы полностью правильные.
 """
 
-    knowledge_context = ""
+    knowledge_parts = []
 
     if errors:
-        knowledge_parts = []
-
         for error in errors:
             try:
                 context = build_knowledge_context(
                     db=db,
-                    query=f'{error["question"]} {error["topic"]}',
+                    query=(
+                        f'{error["question"]} '
+                        f'{error["topic"]}'
+                    ),
                     subject=error["subject"],
                     limit=3
                 )
 
-                if context:
-                    knowledge_parts.append(
-                        f"""
+                if has_knowledge_context(context):
+                    knowledge_parts.append(f"""
 Материал для ошибки:
 
 Предмет:
@@ -285,66 +304,37 @@ def analyze_attempt(
 
 Найденный учебный материал:
 {context}
-"""
-                    )
+""")
 
             except Exception:
+                # Ошибка поиска знаний не должна блокировать анализ.
                 continue
 
-        if knowledge_parts:
-            knowledge_context = "\n".join(
-                knowledge_parts
-            )
+    knowledge_context = "\n---\n".join(
+        knowledge_parts
+    )
+
+    knowledge_used = bool(knowledge_parts)
 
     student_data += """
 
 Правила анализа:
 
-1. Не объявляй тему слабой только потому, что в текущем тесте
-   была одна ошибка по этой теме.
-
-2. Используй накопленную статистику SkillProfile, чтобы определить,
-   действительно ли проблема повторяется.
-
-3. Обращай внимание на повторяющиеся ошибки по одному предмету,
-   теме или типу навыка.
-
-4. Если одна тема встречается несколько раз и точность по ней
-   низкая, это более сильный сигнал слабого места.
-
-5. Если накопленной статистики недостаточно, прямо учитывай
-   это ограничение и не делай слишком уверенных выводов.
-
-6. При анализе ошибки старайся определить не только название темы,
-   но и конкретный навык или концепцию, которая проверяется вопросом,
-   если это действительно можно определить из текста вопроса.
-
-7. Не выдумывай концепции, которых нет в предоставленных данных.
-
-8. В рекомендациях отдавай приоритет конкретным действиям:
-   что повторить, какой тип задач потренировать и на что обратить
-   внимание при следующих попытках.
-
-9. Не повторяй просто название темы в качестве рекомендации.
-   Рекомендация должна объяснять, ЧТО именно ученику нужно улучшить,
-   если это можно определить из данных.
-
-10. Разделяй:
-   - случайную единичную ошибку;
-   - повторяющуюся проблему;
-   - устойчиво слабую тему по накопленной статистике.
-
-11. Если предоставлен материал из Knowledge Base, используй его
-    для определения конкретного учебного содержания.
-
-12. Не утверждай, что информация взята из учебника, если
-    соответствующий материал отсутствует в Knowledge Base.
-
-13. Если Knowledge Base не содержит подходящего материала,
-    продолжай анализировать данные ученика без него.
-
-14. Не используй нерелевантный учебный материал как доказательство
-    слабости ученика.
+1. Не объявляй тему слабой только из-за одной ошибки.
+2. Учитывай накопленную статистику и размер выборки.
+3. Различай полностью правильные, частично правильные
+   и неправильные ответы.
+4. Не делай вывод о незнании темы без достаточных данных.
+5. Определяй конкретный проверяемый навык, если это
+   подтверждается текстом вопроса.
+6. Давай практические рекомендации с конкретными действиями.
+7. Не выдумывай отсутствующие условия и варианты ответов.
+8. Используй найденный учебный материал только тогда,
+   когда он действительно относится к вопросу.
+9. Если подходящего материала нет, анализируй доступные
+   данные без ссылки на учебник.
+10. Учитывай количество набранных баллов, а не только
+    факт полного или неполного ответа.
 
 Теперь проанализируй результаты ученика.
 """
@@ -374,7 +364,7 @@ def analyze_attempt(
             "attempt_id": attempt.id,
             "analysis": analysis_data,
             "cached": False,
-            "knowledge_used": bool(knowledge_context)
+            "knowledge_used": knowledge_used
         }
 
     except Exception as e:
@@ -384,3 +374,4 @@ def analyze_attempt(
             status_code=500,
             detail=f"AI analysis error: {str(e)}"
         )
+
