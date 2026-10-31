@@ -52,6 +52,8 @@ class QuestionPublic(BaseModel):
 
     question_type: str
     context_id: int | None
+    context_title: str | None = None
+    context_content: str | None = None
 
     question: str
 

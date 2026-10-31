@@ -14,6 +14,7 @@ from app.models import (
     TestSession,
     QuestionResult,
     SkillProfile,
+    TestContext,
 )
 from app.schemas import (
     AnswerResult,
@@ -207,6 +208,13 @@ def start_test(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    allowed_test_types = {"practice", "ent_full"}
+    if test_type not in allowed_test_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported test_type. Allowed: {sorted(allowed_test_types)}",
+        )
+
     started_at = datetime.utcnow()
     expires_at = started_at + timedelta(minutes=240)
 
@@ -258,7 +266,14 @@ def submit_test(
             detail="Test session not found",
         )
 
-    if datetime.utcnow() > session.expires_at:
+    if session.submitted_at is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="This test session has already been submitted",
+        )
+
+    # Технический допуск для автоматической отправки по таймеру.
+    if datetime.utcnow() > session.expires_at + timedelta(seconds=60):
         raise HTTPException(
             status_code=400,
             detail="Test time has expired",
@@ -268,6 +283,12 @@ def submit_test(
         raise HTTPException(
             status_code=400,
             detail="Answers cannot be empty",
+        )
+
+    if session.test_type == "ent_full" and len(answers) != 120:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Full ENT mock must submit exactly 120 answers; received {len(answers)}.",
         )
 
     question_ids = [
@@ -417,6 +438,7 @@ def submit_test(
                 2,
             )
 
+        session.submitted_at = datetime.utcnow()
         db.commit()
 
     except Exception:
@@ -467,13 +489,12 @@ def get_attempt(
 # PROFILE SUBJECT QUESTIONS
 # =========================================================
 
+
 def get_profile_questions(
     db: Session,
     subject: str,
 ):
-    questions = []
-
-    single = (
+    single_query = (
         db.query(Question)
         .filter(
             Question.ent_section == "profile",
@@ -481,23 +502,55 @@ def get_profile_questions(
             Question.question_type == "single",
             Question.context_id.is_(None),
         )
+    )
+
+    # Для информатики используем только 25 вопросов
+    # из актуального набора, не затрагивая старые записи.
+    if subject == "Computer Science":
+        allowed_ids = [
+            73, 74, 80,
+            *range(87, 105),
+            *range(106, 110),
+        ]
+        single_query = single_query.filter(
+            Question.id.in_(allowed_ids)
+        )
+
+    single = (
+        single_query
         .order_by(func.random())
         .limit(25)
         .all()
     )
 
-    context = (
-        db.query(Question)
+    context_row = (
+        db.query(Question.context_id)
         .filter(
             Question.ent_section == "profile",
             Question.subject == subject,
             Question.question_type == "single",
             Question.context_id.isnot(None),
         )
+        .group_by(Question.context_id)
+        .having(func.count(Question.id) >= 5)
         .order_by(func.random())
-        .limit(5)
-        .all()
+        .first()
     )
+
+    context_questions = []
+    if context_row:
+        context_questions = (
+            db.query(Question)
+            .filter(
+                Question.ent_section == "profile",
+                Question.subject == subject,
+                Question.question_type == "single",
+                Question.context_id == context_row[0],
+            )
+            .order_by(Question.id)
+            .limit(5)
+            .all()
+        )
 
     matching = (
         db.query(Question)
@@ -523,85 +576,89 @@ def get_profile_questions(
         .all()
     )
 
-    questions.extend(single)
-    questions.extend(context)
-    questions.extend(matching)
-    questions.extend(multiple)
+    required = {
+        "single": (single, 25),
+        "context": (context_questions, 5),
+        "matching": (matching, 5),
+        "multiple": (multiple, 5),
+    }
 
-    return questions
+    missing = [
+        f"{name}: нужно {count}, найдено {len(rows)}"
+        for name, (rows, count) in required.items()
+        if len(rows) != count
+    ]
 
+    if missing:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Недостаточно профильных вопросов по '{subject}': "
+                + "; ".join(missing)
+            ),
+        )
 
-# =========================================================
-# FULL ENT TEST
-# =========================================================
+    return single + context_questions + matching + multiple
+
 
 @router.get(
     "/ent-test",
     response_model=list[QuestionPublic],
 )
 def get_ent_test(
-    profile_subject: str,
-    profile_subject_2: str,
+    profile_subject: str = "Computer Science",
+    profile_subject_2: str = "Mathematics",
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     questions = []
-
-    math_literacy = (
-        db.query(Question)
-        .filter(
-            Question.ent_section == "mathematical_literacy"
+    for section, count in (
+        ("mathematical_literacy", 10),
+        ("reading_literacy", 10),
+        ("kazakhstan_history", 20),
+    ):
+        rows = (
+            db.query(Question)
+            .filter(Question.ent_section == section)
+            .order_by(func.random())
+            .limit(count)
+            .all()
         )
-        .order_by(func.random())
-        .limit(10)
-        .all()
-    )
+        if len(rows) != count:
+            available = db.query(Question.id).filter(
+                Question.ent_section == section
+            ).count()
+            raise HTTPException(
+                status_code=400,
+                detail=f"Недостаточно вопросов для {section}: нужно {count}, в базе {available}.",
+            )
+        questions.extend(rows)
 
-    reading_literacy = (
-        db.query(Question)
-        .filter(
-            Question.ent_section == "reading_literacy"
-        )
-        .order_by(func.random())
-        .limit(10)
-        .all()
-    )
+    questions.extend(get_profile_questions(db, profile_subject))
+    questions.extend(get_profile_questions(db, profile_subject_2))
 
-    history = (
-        db.query(Question)
-        .filter(
-            Question.ent_section == "kazakhstan_history"
-        )
-        .order_by(func.random())
-        .limit(20)
-        .all()
-    )
-
-    profile_1 = get_profile_questions(
-        db,
-        profile_subject,
-    )
-
-    profile_2 = get_profile_questions(
-        db,
-        profile_subject_2,
-    )
-
-    questions.extend(math_literacy)
-    questions.extend(reading_literacy)
-    questions.extend(history)
-    questions.extend(profile_1)
-    questions.extend(profile_2)
-
-    if len(questions) != 120:
+    if len(questions) != 120 or len({q.id for q in questions}) != 120:
         raise HTTPException(
             status_code=400,
-            detail=(
-                f"Not enough questions. "
-                f"Only {len(questions)} available."
-            ),
+            detail="Не удалось собрать 120 уникальных вопросов для полного пробного.",
         )
 
-    return questions
+    context_ids = {q.context_id for q in questions if q.context_id is not None}
+    contexts = {}
+    if context_ids:
+        contexts = {
+            c.id: c
+            for c in db.query(TestContext).filter(TestContext.id.in_(context_ids)).all()
+        }
+
+    output = []
+    for question in questions:
+        payload = QuestionPublic.model_validate(question).model_dump()
+        context = contexts.get(question.context_id)
+        payload["context_title"] = context.title if context else None
+        payload["context_content"] = context.content if context else None
+        output.append(QuestionPublic(**payload))
+    return output
 
 
 # =========================================================
