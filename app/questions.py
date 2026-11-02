@@ -1,3 +1,4 @@
+
 import os
 from datetime import datetime, timedelta
 
@@ -96,8 +97,6 @@ def get_questions(
     if topic:
         query = query.filter(Question.topic == topic)
 
-    # В модели Question нет topic_id, поэтому параметр
-    # пока сохранён для совместимости, но не используется.
     if topic_id:
         pass
 
@@ -272,7 +271,6 @@ def submit_test(
             detail="This test session has already been submitted",
         )
 
-    # Технический допуск для автоматической отправки по таймеру.
     if datetime.utcnow() > session.expires_at + timedelta(seconds=60):
         raise HTTPException(
             status_code=400,
@@ -291,10 +289,7 @@ def submit_test(
             detail=f"Full ENT mock must submit exactly 120 answers; received {len(answers)}.",
         )
 
-    question_ids = [
-        answer.question_id
-        for answer in answers
-    ]
+    question_ids = [answer.question_id for answer in answers]
 
     if len(question_ids) != len(set(question_ids)):
         raise HTTPException(
@@ -424,18 +419,18 @@ def submit_test(
             skill_profile.total_points += result["points_earned"]
             skill_profile.max_points += result["max_points"]
 
-            if (
-                result["points_earned"]
-                == result["max_points"]
-            ):
+            if result["points_earned"] == result["max_points"]:
                 skill_profile.correct_questions += 1
 
-            skill_profile.accuracy = round(
-                (
-                    skill_profile.correct_questions
-                    / skill_profile.total_questions
-                ) * 100,
-                2,
+            # Accuracy now accounts for partial credit.
+            skill_profile.accuracy = (
+                round(
+                    skill_profile.total_points
+                    / skill_profile.max_points * 100,
+                    2,
+                )
+                if skill_profile.max_points > 0
+                else 0
             )
 
         session.submitted_at = datetime.utcnow()
@@ -504,8 +499,6 @@ def get_profile_questions(
         )
     )
 
-    # Для информатики используем только 25 вопросов
-    # из актуального набора, не затрагивая старые записи.
     if subject == "Computer Science":
         allowed_ids = [
             73, 74, 80,
@@ -584,7 +577,7 @@ def get_profile_questions(
     }
 
     missing = [
-        f"{name}: нужно {count}, найдено {len(rows)}"
+        f"{name}: need {count}, found {len(rows)}"
         for name, (rows, count) in required.items()
         if len(rows) != count
     ]
@@ -593,7 +586,7 @@ def get_profile_questions(
         raise HTTPException(
             status_code=400,
             detail=(
-                f"Недостаточно профильных вопросов по '{subject}': "
+                f"Not enough profile questions for '{subject}': "
                 + "; ".join(missing)
             ),
         )
@@ -630,7 +623,7 @@ def get_ent_test(
             ).count()
             raise HTTPException(
                 status_code=400,
-                detail=f"Недостаточно вопросов для {section}: нужно {count}, в базе {available}.",
+                detail=f"Not enough questions for {section}: need {count}, database has {available}.",
             )
         questions.extend(rows)
 
@@ -640,7 +633,7 @@ def get_ent_test(
     if len(questions) != 120 or len({q.id for q in questions}) != 120:
         raise HTTPException(
             status_code=400,
-            detail="Не удалось собрать 120 уникальных вопросов для полного пробного.",
+            detail="Could not assemble 120 unique questions for the full mock.",
         )
 
     context_ids = {q.context_id for q in questions if q.context_id is not None}
